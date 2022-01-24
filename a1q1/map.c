@@ -32,25 +32,36 @@
 
 struct arg_struct 
 {
-	struct Article* article;
+	struct Article** articles;
 	char* word;
+	int start;
+	int end;
 };
 void* WordCount(void *arguments)
 {
+	// extracting arguments
 	struct arg_struct *args = (struct arg_struct*)arguments;	
-	struct Article* article = args -> article;
+	struct Article** articles = args -> articles;
 	char* word = args -> word;
-	int num_words = article -> numWords;
-	int i;
+	int start = args -> start;
+	int end = args -> end;
+
+	// occurences of the target word
 	int *word_count = (int*)malloc(sizeof(int));
-	for (i = 0; i < num_words; i++)
+	for (int i = start; i < end; i++)
 	{
-		if (strcmp( (article -> words)[i], word ) == 0 )
+		struct Article* current_article = articles[i];
+		int num_words = current_article -> numWords;
+		for (int j = 0; j < num_words; j++)
 		{
-			*word_count += 1;
+			if (strcmp( (current_article -> words)[j], word ) == 0 )
+			{
+				*word_count += 1;
+			}
 		}
 	}
-	printf("word count: %d\n", *word_count);
+
+
 	pthread_exit((void*)word_count);
 }
 size_t MultithreadedWordCount( struct  Library * lib, char * word )
@@ -61,41 +72,56 @@ size_t MultithreadedWordCount( struct  Library * lib, char * word )
 	int articles_consumed = 0;
 	int threads_active = 0;
 	int error = 0;
-
-	// occurences of the target word
+	int work_load = 0;
+	// Occurences of the target word
 
 	int *temp_word_count;
 	int global_word_count = 0;
 
 	// Threads arguments 
 	pthread_t *threads;
-	struct arg_struct args;
-	threads = malloc(sizeof(*threads) * NTHREADS);	
+	threads = (pthread_t*)malloc(sizeof(*threads) * NTHREADS);	
+	struct arg_struct* args = (struct arg_struct*) malloc(sizeof(struct arg_struct) * NTHREADS);
+	int start = 0;
 
+	int end = 0;
+	
 	while (articles_consumed < num_articles)
 	{
-//		printf("articles consumed: %d\n", articles_consumed);
-		threads_active = 0;
-		while (threads_active < NTHREADS || articles_consumed < num_articles)
+		if (num_articles - articles_consumed < NTHREADS)
 		{
-			args.word = word;
-			args.article = articles[articles_consumed];
-			error = pthread_create(&threads[threads_active], NULL, WordCount,(void*)&args);
-		if (error != 0) 
-		{
-			fprintf(stderr, "freqcount: %s\n", strerror(error));
-			exit(1);
-		}		
-			threads_active += 1;
-			articles_consumed += 1;
+			work_load = 1;
 		}
-		for (int j = 0; j < threads_active; j++)
+		else
 		{
-			pthread_join(threads[j], (void**)(&temp_word_count));
-			//printf("temp_word_count: %d\n", *temp_word_count);
+			work_load = num_articles / NTHREADS;
+		}
+		threads_active = 0;	
+		// Dividing each thread amount of work = work_load
+		while (articles_consumed < num_articles && threads_active < NTHREADS)
+		{
+			args[threads_active].word = word;
+			args[threads_active].articles = articles;
+			start = end; args[threads_active].start = start;
+			end = start + work_load; args[threads_active].end = end;
+			articles_consumed += work_load;
+
+			error = pthread_create(&threads[threads_active], NULL, WordCount, (void*)&args[threads_active]);
+			if (error != 0) {
+				fprintf(stderr, "freqcount: %s\n", strerror(error));
+				exit(1);
+			}
+			threads_active += 1;
+		}
+		// Joining and gathering results
+		for (int i = 0; i < threads_active; i++)
+		{
+			pthread_join(threads[i], (void**)&temp_word_count);
 			global_word_count += *temp_word_count;
 		}
 	}
+	free(threads);	
+	free(args);
 	return global_word_count;
 }
 
