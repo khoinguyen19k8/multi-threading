@@ -1,8 +1,7 @@
 # multi-threading
 Implementations of some multi-threading applications.
 
-In this small project. I implemented three applications in multi-threading. They are spinlocks, parallelizing works using multi-threading, and multi-threading with condition variables
-Relevants files are in each folder.
+In this small project. I implemented three applications in multi-threading. They are spinlocks, parallelizing works using multi-threading, and multi-threading with condition variables. Relevants files are in each folder.
 ## Spinlocks
 Spinlock is implemented using __atomic_test_and_set and __atomic_clear instructions.
 
